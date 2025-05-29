@@ -79,6 +79,8 @@ class FarmerResource extends Resource
                 //
             ])
             ->actions([
+                Tables\Actions\ViewAction::make()
+                    ->label('Peta'),
                 Tables\Actions\EditAction::make(),
             ])
             ->bulkActions([
@@ -101,6 +103,7 @@ class FarmerResource extends Resource
             'index' => Pages\ListFarmers::route('/'),
             'create' => Pages\CreateFarmer::route('/create'),
             'edit' => Pages\EditFarmer::route('/{record}/edit'),
+            'view' => Pages\FarmerMap::route('/{record}/map'),
         ];
     }
 }

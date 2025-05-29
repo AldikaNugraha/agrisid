@@ -92,6 +92,8 @@ class FieldResource extends Resource
                 //
             ])
             ->actions([
+                Tables\Actions\ViewAction::make()
+                    ->label("Map"),
                 Tables\Actions\EditAction::make(),
             ])
             ->bulkActions([
@@ -115,6 +117,7 @@ class FieldResource extends Resource
         return [
             'index' => Pages\ListFields::route('/'),
             'create' => Pages\CreateField::route('/create'),
+            'view' => Pages\FieldMap::route('/{record}/map'),
             'edit' => Pages\EditField::route('/{record}/edit'),
         ];
     }

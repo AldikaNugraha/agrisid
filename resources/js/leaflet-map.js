@@ -1,4 +1,3 @@
-console.log(village_id);
 document.addEventListener('DOMContentLoaded', function () {
     let initialLat = -6.595038; // Example: Bogor
     let initialLng = 106.816635;
