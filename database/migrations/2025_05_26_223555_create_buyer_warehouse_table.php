@@ -20,6 +20,7 @@ return new class extends Migration
             $table->string("wilayah");
             $table->timestampsTz();
             $table->primary(['warehouse_id', 'buyer_id', "wilayah"]);
+            $table->index(['wilayah']);
         });
     }
 

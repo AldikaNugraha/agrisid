@@ -18,6 +18,8 @@ return new class extends Migration
             $table->string('name');
             $table->float('luas');
             $table->magellanMultiPolygonZ("batas")->nullable();
+            $table->index(['name']);
+            $table->spatialIndex(["batas"]);
             $table->timestampsTz();
         });
     }

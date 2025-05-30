@@ -1,54 +1,137 @@
-document.addEventListener('DOMContentLoaded', function () {
-    let initialLat = -6.595038; // Example: Bogor
-    let initialLng = 106.816635;
-    let initialZoom = 10;
+// Import Leaflet's JavaScript
+import L from 'leaflet';
 
-    var map = L.map('map').setView([initialLat, initialLng], initialZoom);
+// Import Leaflet's CSS
+import 'leaflet/dist/leaflet.css';
+
+// It's good practice to also handle Leaflet's default icon image paths
+// when bundling with tools like Vite/Webpack.
+// This ensures markers display correctly.
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+    iconRetinaUrl: new URL('leaflet/dist/images/marker-icon-2x.png', import.meta.url).href,
+    iconUrl: new URL('leaflet/dist/images/marker-icon.png', import.meta.url).href,
+    shadowUrl: new URL('leaflet/dist/images/marker-shadow.png', import.meta.url).href,
+});
+
+document.addEventListener('DOMContentLoaded', function () {
+    const mapElement = document.getElementById('map');
+    if (!mapElement) {
+        console.error('Map element not found!');
+        return;
+    }
+
+    // Retrieve initial data from data attributes
+    let initialGeoJson;
+    let initialCenter;
+    // let villageId; // Example if you use village_id
+
+    try {
+        initialGeoJson = JSON.parse(mapElement.dataset.initialGeojson);
+        initialCenter = JSON.parse(mapElement.dataset.initialCenter);
+    } catch (e) {
+        console.error('Error parsing initial map data from data attributes:', e);
+        // Fallback initial data if parsing fails
+        initialGeoJson = { type: 'FeatureCollection', features: [] };
+        initialCenter = [-6.595038, 106.816635]; // Default center (e.g., Bogor)
+    }
+
+    // Initialize the map
+    var map = L.map('map').setView(initialCenter, 13);
+    var geoJsonLayer = null; // To store the GeoJSON layer
+
+    // Add Tile Layer (OpenStreetMap)
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map);
 
-    // var lc = L.control.locate().addTo(map);
-    // lc.start();
+    // Function to render/update GeoJSON features on the map
+    function renderFeatures(geoJsonData) {
+        if (geoJsonLayer) {
+            map.removeLayer(geoJsonLayer); // Remove existing layer
+            geoJsonLayer = null;
+        }
 
-    // Check if there is GeoJSON data to display
-    if (fieldsGeoJsonData && fieldsGeoJsonData.features && fieldsGeoJsonData.features.length > 0) {
-        var geoJsonLayer = L.geoJSON(fieldsGeoJsonData, {
-            style: function (feature) {
-                // Define a style for your polygons
-                return {
-                    color: "#007bff",       // Border color (e.g., blue)
-                    weight: 2,              // Border weight
-                    opacity: 0.8,           // Border opacity
-                    fillColor: "#007bff",    // Fill color
-                    fillOpacity: 0.2        // Fill opacity
-                };
-            },
-            onEachFeature: function (feature, layer) {
-                // Bind a popup to each feature
-                if (feature.properties) {
-                    let popupContent = '';
-                    if (feature.properties.field_name) {
-                        popupContent += `<strong>Nama Lahan:</strong> ${feature.properties.field_name}<br>`;
-                    }
-                    if (feature.properties.field_luas) {
-                        popupContent += `<strong>Luas:</strong> ${feature.properties.field_luas} Ha`;
-                    }
-                    // Add more properties as needed
-                    if (popupContent) {
-                        layer.bindPopup(popupContent);
+        if (geoJsonData && geoJsonData.features && geoJsonData.features.length > 0) {
+            geoJsonLayer = L.geoJSON(geoJsonData, {
+                onEachFeature: function (feature, layer) {
+                    // Customize popups or other interactions here
+                    if (feature.properties) {
+                        let popupContent = '';
+                        if (feature.properties.name) {
+                            popupContent += `<strong>${feature.properties.name}</strong><br>`;
+                        }
+                        // Add more properties to the popup if needed
+                        // for (const key in feature.properties) {
+                        //     if (key !== 'name' && Object.prototype.hasOwnProperty.call(feature.properties, key)) {
+                        //         popupContent += `${key}: ${feature.properties[key]}<br>`;
+                        //     }
+                        // }
+                        if (popupContent) {
+                            layer.bindPopup(popupContent);
+                        }
                     }
                 }
-            }
-        }).addTo(map);
+            }).addTo(map);
 
-        // Fit the map bounds to the GeoJSON layer
-        map.fitBounds(geoJsonLayer.getBounds());
-    } else {
-        console.log('No field boundaries found for this village or data is empty.');
-        // You could add a message to the user on the map here if no data
-        // L.marker([initialLat, initialLng]).addTo(map)
-        //  .bindPopup(`No field boundaries found for village ID: ${village_id}. Showing default location.`)
-        //  .openPopup();
+            // Fit map to the bounds of the new features
+            try {
+                if (geoJsonLayer.getBounds().isValid()) {
+                    map.fitBounds(geoJsonLayer.getBounds());
+                }
+            } catch (e) {
+                console.warn("Could not fit map to bounds, possibly no valid geometries.", e);
+                // If fitBounds fails (e.g., single point or invalid data), set view to initial/current center
+                if (initialCenter) map.setView(initialCenter, 15);
+            }
+        } else {
+            // No features to display, maybe clear map or show default message
+            console.log('No features to display.');
+            if (initialCenter) map.setView(initialCenter, 13); // Reset to a default view
+        }
     }
+
+    // Function to update map center
+    function updateMapView(centerCoordinates) {
+        if (centerCoordinates && Array.isArray(centerCoordinates) && centerCoordinates.length === 2) {
+            map.setView(centerCoordinates, map.getZoom()); // Keep current zoom or set a default
+        } else if (geoJsonLayer && geoJsonLayer.getLayers().length === 0) {
+            // If no features and no specific center, set to default
+            map.setView(initialCenter, 10); // Zoom out a bit more
+        }
+    }
+
+    // Initial rendering of features
+    renderFeatures(initialGeoJson);
+    if (initialCenter && (!initialGeoJson || !initialGeoJson.features || initialGeoJson.features.length === 0)) {
+         // If no features initially, ensure map is centered
+        map.setView(initialCenter, 13);
+    }
+
+
+    // --- Event Listeners for Livewire dispatched events ---
+
+    // Listen for GeoJSON updates
+    window.addEventListener('geoJsonUpdated', event => {
+        console.log('Livewire event: geoJsonUpdated received', event.detail.geoJson);
+        if (event.detail && event.detail.geoJson) {
+            renderFeatures(event.detail.geoJson);
+        }
+    });
+
+    // Listen for Map Center updates
+    window.addEventListener('mapCenterUpdated', event => {
+        console.log('Livewire event: mapCenterUpdated received', event.detail.center);
+        if (event.detail && event.detail.center) {
+            updateMapView(event.detail.center);
+        }
+    });
+
+    // Handle map resize to ensure it displays correctly if container size changes
+    // This is useful if the map is in a dynamic layout.
+    const resizeObserver = new ResizeObserver(() => {
+        map.invalidateSize();
+    });
+    resizeObserver.observe(mapElement);
+
 });

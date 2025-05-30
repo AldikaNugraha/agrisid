@@ -16,6 +16,7 @@ return new class extends Migration
             $table->string('name')->unique();
             $table->string('varietas')->nullable();
             $table->integer('stok')->nullable();
+            $table->index(['name', "stok"]);
             $table->timestampsTz();
         });
     }

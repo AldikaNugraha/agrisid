@@ -19,6 +19,7 @@ return new class extends Migration
             $table->string('address');
             $table->string('phone');
             $table->string('email')->unique()->nullable();
+            $table->index(['name']);
             $table->timestampsTz();
         });
     }

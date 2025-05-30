@@ -20,6 +20,7 @@ return new class extends Migration
             $table->date("tanggal_panen");
             $table->timestampsTz();
             $table->primary(['warehouse_id', 'field_id', "tanggal_panen"]);
+            $table->index(['qty', 'tanggal_tanam']);
         });
     }
 

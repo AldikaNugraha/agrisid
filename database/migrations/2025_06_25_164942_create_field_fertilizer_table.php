@@ -19,6 +19,7 @@ return new class extends Migration
             $table->date("start_fertilize");
             $table->timestampsTz();
             $table->primary(['field_id', 'fertilizer_id', "start_fertilize"]);
+            $table->index(['qty', 'start_fertilize']);
         });
     }
 

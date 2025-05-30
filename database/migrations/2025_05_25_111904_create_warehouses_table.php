@@ -19,6 +19,7 @@ return new class extends Migration
             $table->integer('current_stock'); // total dari qty pada warehouse_id yang sama di pivot field_warehouse
             $table->string('pic')->nullable();
             $table->timestamps();
+            $table->index(['name', "current_stock"]);
         });
     }
 

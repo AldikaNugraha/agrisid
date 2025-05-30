@@ -4,6 +4,7 @@ namespace App\Filament\Resources\FieldResource\RelationManagers;
 
 use App\Filament\Resources\HarvestResource;
 use App\Models\Comodity;
+use App\Models\ComodityField;
 use App\Models\Warehouse;
 use Carbon\Carbon;
 use Filament\Forms;
@@ -111,18 +112,12 @@ class WarehousesRelationManager extends RelationManager
                                 $fieldId = $livewire->getOwnerRecord()->id;
                                 $comodityId = $get('comodity_name'); // This is the ID of the selected Comodity
 
-                                if (!$fieldId || !$comodityId) {
-                                    return []; // Not enough info to fetch planting dates
-                                }
+                                if (!$fieldId || !$comodityId) return [];
 
-                                // Query the pivot table 'comodity_field'
-                                // It should have 'field_id', 'comodity_id', 'tanggal_tanam'
-                                $plantingDates = DB::table('comodity_field')
-                                    ->where('field_id', $fieldId)
-                                    ->where('comodity_id', $comodityId)
-                                    ->orderBy('tanggal_tanam') // Optional: order the dates
+                                $plantingDates = ComodityField::forFieldAndComodity($fieldId, $comodityId)
+                                    ->orderBy('tanggal_tanam')
                                     ->select('tanggal_tanam')
-                                    ->distinct() // Get unique tanggal_tanam dates
+                                    ->distinct()
                                     ->get();
 
                                 // Format for options: [value => label]
@@ -146,13 +141,10 @@ class WarehousesRelationManager extends RelationManager
                                     $comodityId = $get('comodity_name');
 
                                     if ($fieldId && $comodityId) {
-                                        // Query for the specific quantity. Assuming 'qty' is the column name.
-                                        $pivotEntry = DB::table('comodity_field')
-                                            ->where('field_id', $fieldId)
-                                            ->where('comodity_id', $comodityId)
-                                            ->where('tanggal_tanam', $state) // $state is the selectedTanggalTanam
-                                            ->select('qty') // Select the quantity column
-                                            ->first(); // Expecting one record or none
+                                        $pivotEntry = ComodityField::forFieldAndComodity($fieldId, $comodityId)
+                                            ->withDate($state) // $state is tanggal_tanam
+                                            ->select('qty')
+                                            ->first();
 
                                         if ($pivotEntry && isset($pivotEntry->qty)) {
                                             $set('field_comodity_plantingQty', $pivotEntry->qty);

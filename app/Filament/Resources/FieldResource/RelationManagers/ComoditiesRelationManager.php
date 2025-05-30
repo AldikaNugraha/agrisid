@@ -82,11 +82,6 @@ class ComoditiesRelationManager extends RelationManager
                     ->sortable(),
             ])
             ->filters([
-                // Add any table filters here. If a Select filter uses ->relationship(),
-                // ensure the relationship name is correct for the `Field` model (owner model).
-                // Example:
-                // Tables\Filters\SelectFilter::make('comodity_id')
-                //    ->relationship('comodities', 'name') // Filters based on available comodities
             ])
             ->headerActions([
                 // Action to attach existing Comodity records to the current Field.

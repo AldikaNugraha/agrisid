@@ -1,17 +1,41 @@
 <x-filament-panels::page>
-    <div class="top-0 left-0 w-full h-full position-absolute">
-        <div style="height:calc(100vh - 65px);" class="z-10 w-full p-0 m-0 overflow-hidden position-relative">
-            <div wire:ignore id='map' class="top-0 left-0 z-10 w-full h-full position-absolute" ></div>
+    {{-- Field Selection Form --}}
+    <div class="p-4 mb-6 bg-white rounded-lg shadow dark:bg-gray-800 filament-forms-component-container">
+        <h3 class="mb-4 text-lg font-medium text-gray-900 dark:text-white">Filter Fields on Map</h3>
+        {{--
+            The form tag itself isn't strictly necessary for submission if using a Livewire action button,
+            but it helps group the form elements visually and semantically.
+            We use wire:submit.prevent on the button's action if it were a type="submit".
+            Here, we'll use a standard button with wire:click.
+        --}}
+        <div> {{-- Changed form to div or you can keep form tag without wire:submit --}}
+            {{ $this->form }}
+
+            <div class="pt-4 mt-4">
+                <x-filament::button
+                    wire:click="applyFieldFilters"
+                    type="button" {{-- Important: type="button" to prevent default form submission --}}
+                    icon="heroicon-m-magnifying-glass" {{-- Example icon --}}
+                >
+                    Update Map Filters
+                </x-filament::button>
+            </div>
         </div>
     </div>
+
+    {{-- Your Map Container --}}
+    <div class="top-0 left-0 w-full h-full position-absolute">
+        <div style="height:calc(100vh - 220px);" class="w-full p-0 m-0 overflow-hidden z-1 position-relative">
+            {{-- Adjusted height slightly to accommodate the form if it's above the map viewport --}}
+            {{-- Pass initial data as data attributes --}}
+            <div wire:ignore id='map' class="top-0 left-0 w-full h-full z-1 position-absolute"
+                    data-initial-geojson='@json($fieldsGeoJson)'
+                    data-initial-center='@json($mapCenter ?? [-6.595038, 106.816635])'
+            ></div>
+        </div>
+    </div>
+
     @assets('scripts')
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.locatecontrol/0.71.0/L.Control.Locate.min.css">
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.locatecontrol/0.71.0/L.Control.Locate.min.js"></script>
-
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
-        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-
         <script>
             const fieldsGeoJsonData = @json($this->fieldsGeoJson);
         </script>

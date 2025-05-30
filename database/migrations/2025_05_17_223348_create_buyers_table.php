@@ -19,6 +19,7 @@ return new class extends Migration
             $table->string("email")->unique()->nullable();
             $table->boolean("is_validate");
             $table->timestampsTz();
+            $table->index(['name']);
         });
     }
 

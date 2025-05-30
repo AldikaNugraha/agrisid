@@ -19,6 +19,7 @@ return new class extends Migration
             $table->dateTimeTz('tanggal_tanam');
             $table->timestampsTz();
             $table->primary(['field_id', 'comodity_id', "tanggal_tanam"]);
+            $table->index(['qty', 'tanggal_tanam']);
         });
     }
 

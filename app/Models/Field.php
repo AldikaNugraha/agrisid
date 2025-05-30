@@ -38,6 +38,7 @@ class Field extends Model
     public function comodities(): BelongsToMany
     {
         return $this->belongsToMany(Comodity::class, 'comodity_field', 'field_id', 'comodity_id')
+            ->using(ComodityField::class)
             ->withPivot("id", "qty", "tanggal_tanam")
             ->withTimestamps();
     }

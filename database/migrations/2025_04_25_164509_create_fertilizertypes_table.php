@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string("jenis");
             $table->date("expired_date")->nullable();
             $table->integer("stok")->default(0);
+            $table->index(['name', "stok"]);
             $table->timestampsTz();
         });
     }

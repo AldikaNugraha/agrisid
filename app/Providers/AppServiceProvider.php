@@ -32,6 +32,7 @@ class AppServiceProvider extends ServiceProvider
         Model::unguard();
         FilamentAsset::register([
             Js::make('leaflet-map', resource_path('js/leaflet-map.js')),
+            Js::make('leaflet-map-static', resource_path('js/leaflet-map-static.js')),
         ]);
     }
 }

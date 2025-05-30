@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('name');
             $table->string('ketua');
             $table->integer('jumlah_anggota');
+            $table->index(['name']);
             $table->timestampsTz();
         });
     }
