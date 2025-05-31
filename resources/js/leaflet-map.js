@@ -1,137 +1,194 @@
-// Import Leaflet's JavaScript
 import L from 'leaflet';
-
-// Import Leaflet's CSS
 import 'leaflet/dist/leaflet.css';
 
-// It's good practice to also handle Leaflet's default icon image paths
-// when bundling with tools like Vite/Webpack.
-// This ensures markers display correctly.
+// Handle Leaflet's default icon image paths for bundling
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
-    iconRetinaUrl: new URL('leaflet/dist/images/marker-icon-2x.png', import.meta.url).href,
-    iconUrl: new URL('leaflet/dist/images/marker-icon.png', import.meta.url).href,
-    shadowUrl: new URL('leaflet/dist/images/marker-shadow.png', import.meta.url).href,
+  iconRetinaUrl: new URL('leaflet/dist/images/marker-icon-2x.png', import.meta.url).href,
+  iconUrl: new URL('leaflet/dist/images/marker-icon.png', import.meta.url).href,
+  shadowUrl: new URL('leaflet/dist/images/marker-shadow.png', import.meta.url).href,
 });
 
 document.addEventListener('DOMContentLoaded', function () {
     const mapElement = document.getElementById('map');
     if (!mapElement) {
-        console.error('Map element not found!');
+        console.error('Map element with ID "map" not found!');
         return;
     }
 
-    // Retrieve initial data from data attributes
-    let initialGeoJson;
-    let initialCenter;
-    // let villageId; // Example if you use village_id
+    // --- pygeoapi Configuration ---
+    const pygeoapiBaseUrl = 'http://localhost:8050'; // Your pygeoapi base URL
+    const collectionId = 'fields-postgis';          // Your collection ID
+    const itemsUrl = `${pygeoapiBaseUrl}/collections/${collectionId}/items`;
 
+    // This should match the actual ID property name in your GeoJSON features' properties
+    // as returned by pygeoapi, and used in the CQL2 filter.
+    const idPropertyNameInFeatures = mapElement.dataset.idPropertyName || 'id'; // Default to 'id', make configurable if needed
+
+    // --- End pygeoapi Configuration ---
+
+    let initialMapCenter;
     try {
-        initialGeoJson = JSON.parse(mapElement.dataset.initialGeojson);
-        initialCenter = JSON.parse(mapElement.dataset.initialCenter);
+        initialMapCenter = JSON.parse(mapElement.dataset.initialCenter);
     } catch (e) {
-        console.error('Error parsing initial map data from data attributes:', e);
-        // Fallback initial data if parsing fails
-        initialGeoJson = { type: 'FeatureCollection', features: [] };
-        initialCenter = [-6.595038, 106.816635]; // Default center (e.g., Bogor)
+        initialMapCenter = [-6.595038, 106.816635]; // Default center
     }
 
-    // Initialize the map
-    var map = L.map('map').setView(initialCenter, 13);
-    var geoJsonLayer = null; // To store the GeoJSON layer
+    const map = L.map('map').setView(initialMapCenter, 13);
+    let geoJsonLayer = null; // To store the current GeoJSON layer
 
-    // Add Tile Layer (OpenStreetMap)
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map);
 
-    // Function to render/update GeoJSON features on the map
-    function renderFeatures(geoJsonData) {
+
+    // Function to clear existing features from the map
+    function clearMapFeatures() {
         if (geoJsonLayer) {
-            map.removeLayer(geoJsonLayer); // Remove existing layer
+            map.removeLayer(geoJsonLayer);
             geoJsonLayer = null;
         }
+    }
 
-        if (geoJsonData && geoJsonData.features && geoJsonData.features.length > 0) {
-            geoJsonLayer = L.geoJSON(geoJsonData, {
+    // Function to fetch and render features from pygeoapi based on IDs
+    async function fetchAndRenderFields(featureIdsToFetch) {
+        clearMapFeatures();
+
+        if (!featureIdsToFetch || featureIdsToFetch.length === 0) {
+            console.log("No field IDs provided to fetch. Map cleared.");
+            // Optionally set a default view if map is empty
+            map.setView(initialMapCenter, 10); // Zoom out if no features
+            return;
+        }
+
+        // Show a simple loading indicator (optional)
+        mapElement.style.cursor = 'wait';
+        // You could add a more sophisticated loading overlay here
+
+        const cql2JsonFilter = {
+            "op": "in",
+            "args": [
+                { "property": idPropertyNameInFeatures }, // Use the configured ID property name for the filter
+                featureIdsToFetch // These are the IDs from Livewire
+            ]
+        };
+
+        const queryParams = 'f=json&filter-lang=cql-json';
+        console.log("Requesting features for IDs:", featureIdsToFetch);
+        console.log("Sending CQL2-JSON filter:", JSON.stringify(cql2JsonFilter, null, 2));
+
+        try {
+            const response = await fetch(`${itemsUrl}?${queryParams}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/query-cql-json',
+                    'Accept': 'application/geo+json'
+                },
+                body: JSON.stringify(cql2JsonFilter)
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorText}`);
+            }
+
+            const featureCollection = await response.json();
+
+            if (!featureCollection || featureCollection.type !== 'FeatureCollection') {
+                console.warn("Response is not a valid GeoJSON FeatureCollection:", featureCollection);
+                alert("Did not receive a valid FeatureCollection from the server.");
+                return;
+            }
+
+            if (!featureCollection.features || featureCollection.features.length === 0) {
+                console.warn("No features returned in the FeatureCollection.");
+                // alert(`No features found for the selected IDs using property '${idPropertyNameInFeatures}'.`);
+                // No alert here, as an empty valid collection is possible if selected IDs have no geometry
+                // or don't match any features in pygeoapi.
+            } else {
+                 console.log(`Received ${featureCollection.features.length} features.`);
+            }
+
+
+            // Add the new features to the map
+            geoJsonLayer = L.geoJSON(featureCollection, {
                 onEachFeature: function (feature, layer) {
-                    // Customize popups or other interactions here
+                    let popupContent = `<h4>Feature Details</h4>`;
                     if (feature.properties) {
-                        let popupContent = '';
-                        if (feature.properties.name) {
-                            popupContent += `<strong>${feature.properties.name}</strong><br>`;
+                        popupContent += '<ul>';
+                        for (const key in feature.properties) {
+                            if (Object.prototype.hasOwnProperty.call(feature.properties, key)) {
+                                popupContent += `<li><strong>${key}:</strong> ${feature.properties[key]}</li>`;
+                            }
                         }
-                        // Add more properties to the popup if needed
-                        // for (const key in feature.properties) {
-                        //     if (key !== 'name' && Object.prototype.hasOwnProperty.call(feature.properties, key)) {
-                        //         popupContent += `${key}: ${feature.properties[key]}<br>`;
-                        //     }
-                        // }
-                        if (popupContent) {
-                            layer.bindPopup(popupContent);
-                        }
+                        popupContent += '</ul>';
+                    } else {
+                        popupContent += "<p>No properties found for this feature.</p>";
                     }
+                    layer.bindPopup(popupContent);
+                },
+                style: function (feature) { // Optional: default styling
+                    return { color: "#3388ff", weight: 3, opacity: 0.7 };
                 }
             }).addTo(map);
 
-            // Fit map to the bounds of the new features
-            try {
-                if (geoJsonLayer.getBounds().isValid()) {
-                    map.fitBounds(geoJsonLayer.getBounds());
+            // Zoom the map to the bounds of all fetched features
+            if (featureCollection.features && featureCollection.features.length > 0 && geoJsonLayer.getBounds().isValid()) {
+                map.fitBounds(geoJsonLayer.getBounds());
+            } else if (featureCollection.features && featureCollection.features.length > 0) {
+                // If bounds are not valid (e.g. single point), try to set view based on first feature.
+                // This is a simplified fallback; more robust centering might be needed.
+                const firstFeatCoords = featureCollection.features[0]?.geometry?.coordinates;
+                if (firstFeatCoords) {
+                    if (featureCollection.features[0].geometry.type === 'Point') {
+                         map.setView([firstFeatCoords[1], firstFeatCoords[0]], 15); // Lat, Lng for Point
+                    } else {
+                        // For Polygons/MultiPolygons, this is more complex. fitBounds is preferred.
+                        // As a last resort, set to initial center or a wider view.
+                        map.setView(initialMapCenter, 13);
+                    }
                 }
-            } catch (e) {
-                console.warn("Could not fit map to bounds, possibly no valid geometries.", e);
-                // If fitBounds fails (e.g., single point or invalid data), set view to initial/current center
-                if (initialCenter) map.setView(initialCenter, 15);
+            } else {
+                 map.setView(initialMapCenter, 10); // No features, zoom out
             }
+
+        } catch (error) {
+            console.error('Error fetching or displaying GeoJSON features from pygeoapi:', error);
+            alert('Could not load features on the map: ' + error.message);
+            // Optionally display error on map div
+            // mapElement.innerHTML = `<p style="color: red; text-align: center; padding: 20px;">Failed to load features: ${error.message}</p>`;
+        } finally {
+            mapElement.style.cursor = ''; // Reset cursor
+            // Hide loading overlay here
+        }
+    }
+
+    // Listen for the Livewire event dispatching selected field IDs
+    window.addEventListener('selectedFieldIdsUpdated', event => {
+        if (event.detail && Array.isArray(event.detail.selectedIds)) {
+            console.log('Livewire event: selectedFieldIdsUpdated received', event.detail.selectedIds);
+            fetchAndRenderFields(event.detail.selectedIds);
         } else {
-            // No features to display, maybe clear map or show default message
-            console.log('No features to display.');
-            if (initialCenter) map.setView(initialCenter, 13); // Reset to a default view
-        }
-    }
-
-    // Function to update map center
-    function updateMapView(centerCoordinates) {
-        if (centerCoordinates && Array.isArray(centerCoordinates) && centerCoordinates.length === 2) {
-            map.setView(centerCoordinates, map.getZoom()); // Keep current zoom or set a default
-        } else if (geoJsonLayer && geoJsonLayer.getLayers().length === 0) {
-            // If no features and no specific center, set to default
-            map.setView(initialCenter, 10); // Zoom out a bit more
-        }
-    }
-
-    // Initial rendering of features
-    renderFeatures(initialGeoJson);
-    if (initialCenter && (!initialGeoJson || !initialGeoJson.features || initialGeoJson.features.length === 0)) {
-         // If no features initially, ensure map is centered
-        map.setView(initialCenter, 13);
-    }
-
-
-    // --- Event Listeners for Livewire dispatched events ---
-
-    // Listen for GeoJSON updates
-    window.addEventListener('geoJsonUpdated', event => {
-        console.log('Livewire event: geoJsonUpdated received', event.detail.geoJson);
-        if (event.detail && event.detail.geoJson) {
-            renderFeatures(event.detail.geoJson);
+            console.warn('selectedFieldIdsUpdated event received, but "selectedIds" array is missing or invalid in event.detail.');
+            fetchAndRenderFields([]); // Clear map or show default state
         }
     });
 
-    // Listen for Map Center updates
-    window.addEventListener('mapCenterUpdated', event => {
-        console.log('Livewire event: mapCenterUpdated received', event.detail.center);
-        if (event.detail && event.detail.center) {
-            updateMapView(event.detail.center);
-        }
-    });
-
-    // Handle map resize to ensure it displays correctly if container size changes
-    // This is useful if the map is in a dynamic layout.
+    // Handle map resize
     const resizeObserver = new ResizeObserver(() => {
         map.invalidateSize();
     });
-    resizeObserver.observe(mapElement);
+    if (mapElement) {
+        resizeObserver.observe(mapElement);
+    }
 
+    // Initial data load (if any IDs are dispatched from mount())
+    // The 'selectedFieldIdsUpdated' event dispatched from mount() will trigger the initial load.
+    // If you have initialGeoJson in data attributes and want to load that *before* any event:
+    // const initialGeoJsonData = mapElement.dataset.initialGeojson ? JSON.parse(mapElement.dataset.initialGeojson) : null;
+    // if (initialGeoJsonData && initialGeoJsonData.features && initialGeoJsonData.features.length > 0) {
+    //    renderFeatures(initialGeoJsonData); // A simpler renderFeatures without fetching might be needed for this.
+    // } else if (mapElement.dataset.initialSelectedIds) { // Or pass initial IDs this way
+    //    fetchAndRenderFields(JSON.parse(mapElement.dataset.initialSelectedIds));
+    // }
 });

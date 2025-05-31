@@ -6,7 +6,7 @@
     </div>
     @assets('scripts')
         <script>
-            const fieldsGeoJsonData = @json($this->fieldsGeoJson);
+            const fieldId = @json($this->field_id);
         </script>
         @vite('resources/js/leaflet-map-static.js')
     @endassets
