@@ -53,8 +53,14 @@ class FieldResource extends Resource
                     ->previewable(false)
                     ->preserveFilenames()
                     ->helperText('Format batas lahan harus berupa file GeoJSON.')
-                    ->required()
-                    ,
+                    ->required(),
+                Forms\Components\FileUpload::make('raster_file')
+                    ->label("Masukan File Raster")
+                    ->maxSize(2048576)
+                    ->disk('public')
+                    ->previewable(false)
+                    ->preserveFilenames()
+                    ->helperText('Format raster harus berupa COG.'),
             ]);
     }
 

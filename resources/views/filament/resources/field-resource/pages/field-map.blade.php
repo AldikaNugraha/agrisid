@@ -7,6 +7,7 @@
     @assets('scripts')
         <script>
             const fieldId = @json($this->field_id);
+            const cogName= @json($this->cog_name);
         </script>
         @vite('resources/js/leaflet-map-static.js')
     @endassets

@@ -106,7 +106,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 // No alert here, as an empty valid collection is possible if selected IDs have no geometry
                 // or don't match any features in pygeoapi.
             } else {
-                 console.log(`Received ${featureCollection.features.length} features.`);
+                console.log(`Received ${featureCollection.features.length} features.`);
             }
 
 

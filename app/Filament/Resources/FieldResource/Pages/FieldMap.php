@@ -5,6 +5,7 @@ namespace App\Filament\Resources\FieldResource\Pages;
 use App\Filament\Resources\FieldResource;
 use Filament\Resources\Pages\Page;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
+use Illuminate\Support\Facades\Storage;
 
 class FieldMap extends Page
 {
@@ -13,6 +14,7 @@ class FieldMap extends Page
     use InteractsWithRecord;
 
     public int $field_id;
+    public string $cog_name = "drone_20242005_visual_cog";
 
     public function mount(int | string $record): void
     {

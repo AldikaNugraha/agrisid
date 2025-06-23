@@ -3,9 +3,9 @@
 namespace App\Filament\Resources\FieldResource\Pages;
 
 use App\Filament\Resources\FieldResource;
+use App\Jobs\ProcessGeoServerUpload;
 use Illuminate\Database\Eloquent\Model;
 use Filament\Resources\Pages\CreateRecord;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage; // Import Storage facade
 use Illuminate\Support\Facades\Log; // Import Log facade
 use Illuminate\Validation\ValidationException; // Import ValidationException
@@ -129,11 +129,17 @@ class CreateField extends CreateRecord
         } elseif (isset($data['batas_file']) && empty($data['batas_file'])) {
             unset($data['batas_file']);
         }
+        if (isset($data['raster_file']) && is_string($data['raster_file']) && !empty($data['raster_file'])) {
+            $rasterPath = $data['raster_file'];
+            $absolutePath = Storage::disk('public')->path($rasterPath);
+            ProcessGeoServerUpload::dispatch($absolutePath);
+            unset($data['raster_file']);
+        }
+
         return $data;
     }
     protected function handleRecordCreation(array $data): Model
     {
-        // dd($data);
         $record = static::getModel()::create($data);
         return $record;
     }

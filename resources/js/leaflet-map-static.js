@@ -1,19 +1,12 @@
-// Import Leaflet's JavaScript
 import L from 'leaflet';
-
-// Import Leaflet's CSS
 import 'leaflet/dist/leaflet.css';
 
-// It's good practice to also handle Leaflet's default icon image paths
-// when bundling with tools like Vite/Webpack.
-// This ensures markers display correctly.
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
     iconRetinaUrl: new URL('leaflet/dist/images/marker-icon-2x.png', import.meta.url).href,
     iconUrl: new URL('leaflet/dist/images/marker-icon.png', import.meta.url).href,
     shadowUrl: new URL('leaflet/dist/images/marker-shadow.png', import.meta.url).href,
 });
-
 
 document.addEventListener('DOMContentLoaded', function () {
     let initialLat = -6.595038; // Example: Bogor
@@ -28,11 +21,19 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // 3. Define the API endpoint for the GeoJSON feature
     const collectionId = 'fields-postgis'; // Your collection ID
-    const featureId = fieldId;                 // The ID of the feature you want to display
+    const featureId = fieldId;
     const pygeoapiBaseUrl = 'http://localhost:8050'; // Your pygeoapi base URL
-
-    // Construct the URL to get the feature as GeoJSON
     const geoJsonFeatureUrl = `${pygeoapiBaseUrl}/collections/${collectionId}/items/${featureId}?f=json`;
+
+    const cog_name = cogName;
+    const mywms = L.tileLayer.wms("http://localhost:8090/geoserver/WMS/wms", {
+        layers: `WMS:${cog_name}`,
+        format: 'image/png',
+        transparent: true,
+        version: '1.1.0',
+        maxZoom: 30,
+    });
+    mywms.addTo(map);
 
     fetch(geoJsonFeatureUrl
         // If your server requires an Accept header for non-explicit ?f=json:
@@ -98,46 +99,4 @@ document.addEventListener('DOMContentLoaded', function () {
         const mapDiv = document.getElementById('map');
         mapDiv.innerHTML = `<p style="color: red; text-align: center; padding: 20px;">Could not load feature: ${error.message}</p>`;
     });
-
-
-    // // Check if there is GeoJSON data to display
-    // if (fieldsGeoJsonData && fieldsGeoJsonData.features && fieldsGeoJsonData.features.length > 0) {
-    //     var geoJsonLayer = L.geoJSON(fieldsGeoJsonData, {
-    //         style: function (feature) {
-    //             // Define a style for your polygons
-    //             return {
-    //                 color: "#007bff",       // Border color (e.g., blue)
-    //                 weight: 2,              // Border weight
-    //                 opacity: 0.8,           // Border opacity
-    //                 fillColor: "#007bff",    // Fill color
-    //                 fillOpacity: 0.2        // Fill opacity
-    //             };
-    //         },
-    //         onEachFeature: function (feature, layer) {
-    //             // Bind a popup to each feature
-    //             if (feature.properties) {
-    //                 let popupContent = '';
-    //                 if (feature.properties.field_name) {
-    //                     popupContent += `<strong>Nama Lahan:</strong> ${feature.properties.field_name}<br>`;
-    //                 }
-    //                 if (feature.properties.field_luas) {
-    //                     popupContent += `<strong>Luas:</strong> ${feature.properties.field_luas} Ha`;
-    //                 }
-    //                 // Add more properties as needed
-    //                 if (popupContent) {
-    //                     layer.bindPopup(popupContent);
-    //                 }
-    //             }
-    //         }
-    //     }).addTo(map);
-
-    //     // Fit the map bounds to the GeoJSON layer
-    //     map.fitBounds(geoJsonLayer.getBounds());
-    // } else {
-    //     console.log('No field boundaries found for this village or data is empty.');
-    //     // You could add a message to the user on the map here if no data
-    //     // L.marker([initialLat, initialLng]).addTo(map)
-    //     //  .bindPopup(`No field boundaries found for village ID: ${village_id}. Showing default location.`)
-    //     //  .openPopup();
-    // }
 });
